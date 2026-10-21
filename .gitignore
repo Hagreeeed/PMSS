@@ -1,0 +1,30 @@
+# Local IDE and Android SDK settings
+.idea/
+*.iml
+local.properties
+
+# Gradle, Kotlin and Android build output
+.gradle/
+.kotlin/
+**/build/
+captures/
+.externalNativeBuild/
+.cxx/
+.verification/
+*.apk
+*.aab
+
+# Local signing and credentials
+*.jks
+*.keystore
+keystore.properties
+.env
+.env.*
+!.env.example
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Report screenshots are kept locally
+/screenshots/
