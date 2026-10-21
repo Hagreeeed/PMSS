@@ -1,4 +1,4 @@
-package com.example.lab1.sensors
+package com.example.lab2.sensors
 
 import android.content.Context
 import android.hardware.Sensor

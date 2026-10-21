@@ -4,13 +4,13 @@ plugins {
 }
 
 android {
-    namespace = "com.example.lab1"
+    namespace = "com.example.lab2"
     compileSdk {
         version = release(37)
     }
 
     defaultConfig {
-        applicationId = "com.example.lab1"
+        applicationId = "com.example.lab2"
         minSdk = 31
         targetSdk = 37
         versionCode = 1
@@ -45,7 +45,10 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.4")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     testImplementation(libs.junit)
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)

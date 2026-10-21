@@ -1,4 +1,4 @@
-package com.example.lab1.ui
+package com.example.lab2.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
@@ -25,9 +25,9 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.example.lab1.sensors.Acceleration
-import com.example.lab1.sensors.SensorUiState
-import com.example.lab1.ui.theme.Lab1Theme
+import com.example.lab2.sensors.Acceleration
+import com.example.lab2.sensors.SensorUiState
+import com.example.lab2.ui.theme.Lab1Theme
 import java.util.Locale
 
 @Composable
@@ -75,7 +75,7 @@ fun LightExposureScreen(state: SensorUiState) {
                 }
             }
             Text(
-                "Лабораторна №1 · Поточні показники\nЗчитування зупиняється, коли додаток втрачає активність.",
+                "Лабораторна №2 · Сенсори з попередньої роботи\nЗчитування зупиняється, коли додаток втрачає активність.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

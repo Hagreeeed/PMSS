@@ -1,4 +1,4 @@
-package com.example.lab1.ui
+package com.example.lab2.ui
 
 import kotlin.math.hypot
 
