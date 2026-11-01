@@ -35,7 +35,7 @@ GET /posts/101 не є перевіркою збереження. Це REST + Mo
 Activity передає snapshotFlow стану сенсорів у ViewModel. ViewModel утримується при
 пересозданні Activity, repository виконує послідовні suspend POST, StateFlow оновлює UI.
 INTERNET і ACCESS_NETWORK_STATE оголошені в маніфесті. Android package/applicationId
-`com.example.lab2` збережений для продовження попереднього додатка; назва проєкту — lab3.
+`com.example.lab3`; назва проєкту — lab3.
 
 - Новий знімок створюється раз на 5 секунд **після завершення попереднього циклу**.
   Перший запит також через 5 с; це не передача на кожну подію сенсора.
@@ -72,7 +72,7 @@ Android Lint: 0 errors, залишилися попередження залеж
 перезапуск процесу та повтор з тим самим sampleId перевірені фактично.
 
 Для скриншота трафіку вручну: Android Studio → View → Tool Windows → App Inspection
-→ процес `com.example.lab2` → Network Inspector → HTTPS POST /posts → Request / Response.
+→ процес `com.example.lab3` → Network Inspector → HTTPS POST /posts → Request / Response.
 Додаток має залишатися активним. Скриншот саме Network Inspector ще потрібно додати
 до звіту; HTTP-логи та екран відповіді API вже підготовлені.
 
