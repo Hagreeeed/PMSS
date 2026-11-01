@@ -24,6 +24,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalContext
+import android.widget.Toast
+import com.example.lab2.cloud.CloudViewModel
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
@@ -35,16 +39,26 @@ import com.example.lab2.ble.IBleConnector
 import com.example.lab2.sensors.SensorUiState
 
 @Composable
-fun Lab2App(sensors: SensorUiState, connector: IBleConnector) {
+fun LabApp(sensors: SensorUiState, connector: IBleConnector, cloud: CloudViewModel) {
     var tab by rememberSaveable { mutableStateOf(0) }
     val ble by connector.state.collectAsStateWithLifecycle()
+    val cloudState by cloud.state.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    LaunchedEffect(cloud) {
+        cloud.messages.collect { Toast.makeText(context, it, Toast.LENGTH_LONG).show() }
+    }
     Scaffold { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             TabRow(selectedTabIndex = tab) {
-                Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text("IoT-хаб · BLE") })
-                Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text("Сенсори") })
+                Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text("Хмара") })
+                Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text("BLE") })
+                Tab(selected = tab == 2, onClick = { tab = 2 }, text = { Text("Сенсори") })
             }
-            if (tab == 0) HubScreen(sensors, ble, connector) else LightExposureScreen(sensors)
+            when (tab) {
+                0 -> CloudScreen(cloudState, sensors)
+                1 -> HubScreen(sensors, ble, connector)
+                else -> LightExposureScreen(sensors)
+            }
         }
     }
 }

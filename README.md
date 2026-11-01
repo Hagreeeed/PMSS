@@ -1,106 +1,83 @@
-# Light Exposure Tracker — лабораторна №2
+# Light Exposure Tracker — Lab 3
 
-Це один Android-проєкт у корені репозиторію. Лабораторні розділені історією:
+Лабораторна №3: REST-синхронізація сенсорних даних. Окрема локальна гілка
+`lab3-cloud-sync`, робоча тека `D:\PMSS\lab3`. `main` містить ЛР2.
+Злиття та push для ЛР3 не виконувалися. Скріншоти й матеріали звіту не входять у Git.
 
-- Перший коміт / тег `lab1` — сенсори та індикатор освітленості.
-- Другий коміт / тег `lab2` — додано Mock BLE, Read/Write/Notify та керування хабом.
+## Запуск
 
-Поточна гілка `main` містить другу лабораторну. Для перегляду першої:
-`git switch --detach lab1`; повернення до другої: `git switch main`.
-В Android Studio відкривайте корінь репозиторію. Перед перемиканням збережіть
-власні зміни; після перемикання виконайте Gradle Sync.
+1. В Android Studio відкрити корінь цієї робочої теки, виконати Gradle Sync та Run.
+2. Вкладка **Хмара** відкривається першою. Сенсори і BLE попередніх робіт збережені.
+3. Емулятор → Extended Controls → Virtual Sensors → Additional sensors → Light:
+   задати 420 лк. Device Pose дозволяє змінити X/Y/Z акселерометра.
+4. Через 5 секунд після відкриття екрана почнеться передача. Очікуваний результат:
+   зелений **SYNCED**, HTTP 201, Pending 0; нижче — фактичні JSON запиту й відповіді.
+5. Змінити Light на 700 та нахил. Наступний запит міститиме нові показники.
+6. Вимкнути Wi-Fi і мобільні дані **в емуляторі**. За наступного циклу буде червоний
+   **PENDING** та Toast. Pending зберігається локально і переживає перезапуск процесу.
+7. Відновити мережу: старі записи надсилатимуться FIFO з незмінним sampleId.
+8. Logcat: `tag:LightHttp` — повні HTTP у debug; `tag:LightCloud` — події outbox.
 
-Package / applicationId другої лабораторної:
-`com.example.lab2`, тому обидві лабораторні встановлюються одночасно.
-Kotlin, Jetpack Compose, Android 12+ (minSdk 31), compile/target API 37.
+## API та межі демонстрації
 
-## Запуск і демонстрація
+POST `https://jsonplaceholder.typicode.com/posts`, Retrofit 2.11.0, Gson 2.11.0,
+OkHttp 4.12.0, Coroutines. API публічний, ключі й google-services.json не потрібні.
+JSONPlaceholder повертає HTTP 201 та echo з id, але **не зберігає записи на сервері**.
+GET /posts/101 не є перевіркою збереження. Це REST + Mock API, дозволений варіант Б.
 
-1. Відкрити цю теку в Android Studio, дочекатися Gradle Sync та натиснути Run.
-2. На вкладці **IoT-хаб · BLE** натиснути **Пошук пристроїв**.
-   Через 2 секунди з’явиться Light Smart Hub (RSSI та адреса — mock).
-3. Натиснути **Підключити**. Після 800 мс стан стане Connected.
-4. В Extended Controls емулятора → Virtual Sensors → Additional sensors
-   задати Light = 420. Або виконати `adb emu sensor set light 420`.
-5. Увімкнути **Notify: OFF**, натиснути **Надіслати lux**, потім **Read статус**.
-   Очікувані Read / Notify: `L:420.0;T:500`, підтвердження `ACK:LUX`.
-6. **Ціль 500 лк** записує `SET:500`. Ціль є параметром хаба, а не медичною
-   чи нормативною рекомендацією щодо освітленості.
-7. **Імітувати втрату зв’язку** переводить у Disconnected; для відновлення
-   натиснути **Підключити**, а потім знову увімкнути Notify.
-8. Вкладка **Сенсори** зберігає функції лабораторної №1: lux, X/Y/Z та Canvas.
+`SensorData`: deviceId (випадковий installation UUID, не Android ID), timestamp
+(Unix milliseconds), value (lux), type (`light`), x/y/z (м/с², nullable), sampleId
+(UUID вимірювання). Формування JSON виконує Gson; дробовий роздільник — крапка.
 
-Термінал розташований нижче карток; він прокручується разом з екраном,
-нові повідомлення показуються першими. Logcat: фільтр `tag:LightBle`.
+## Архітектура та поведінка
 
-## Архітектура
+`SensorManager → MainActivity → CloudViewModel → CloudRepository → CloudApi`.
+Activity передає snapshotFlow стану сенсорів у ViewModel. ViewModel утримується при
+пересозданні Activity, repository виконує послідовні suspend POST, StateFlow оновлює UI.
+INTERNET і ACCESS_NETWORK_STATE оголошені в маніфесті. Android package/applicationId
+`com.example.lab2` збережений для продовження попереднього додатка; назва проєкту — lab3.
 
-- `MainActivity` — створення монітора та MockBleConnector у lifecycleScope,
-  запуск сенсорів в onResume, зупинка сенсорів і BLE в onPause.
-- `sensors/WorkplaceSensorMonitor` — сенсори з лабораторної №1.
-- `ble/IBleConnector` — контракт connect/disconnect/sendData та scan/read/notify.
-- `ble/MockBleScanner` — suspend scan, delay(2000), один віртуальний пристрій.
-- `ble/MockBleConnector` — MutableStateFlow / StateFlow, стани, журнал,
-  перевірка пакетів, ACK та Notify, скасування Job і тайм-аут 3 секунди.
-- `ble/BleProfile` — UUID, моделі стану та пакети.
-- `ui/Lab2App` — Compose, collectAsStateWithLifecycle, керування хабом.
-- `ui/LightExposureScreen`, `TiltPosition` — показники й індикатор з lab1.
+- Новий знімок створюється раз на 5 секунд **після завершення попереднього циклу**.
+  Перший запит також через 5 с; це не передача на кожну подію сенсора.
+- За цикл надсилається максимум 3 записи з черги, по одному запиту одночасно.
+- Валідація мережі через ConnectivityManager; IOException все одно обробляється,
+  оскільки мережа може зникнути після перевірки. Тайм-аути: connect/read 10 с, call 15 с.
+- Pending записується до SharedPreferences як JSON на Dispatchers.IO перед POST.
+  ACK має містити успішний HTTP, id і відповідний sampleId; після нього запис видаляється.
+- Mutex серіалізує цикли. Збереження диска й оновлення пам’яті захищено NonCancellable,
+  щоб onPause не порушив їх узгодженість. Скасування мережі не стирає Pending.
+- Черга обмежена 120 записами. За переповнення новий знімок пропускається з повідомленням
+  у журналі; раніше прийняті записи не витісняються.
+- onPause припиняє цикл і сенсори; немає WorkManager чи фонового сервісу. Повернення
+  в додаток відновлює цикл. Серверний timestamp походить від годинника пристрою.
+- Лічильник «Надіслано», остання відповідь, HTTP-код і журнал — поточна сесія ViewModel;
+  після process death зберігаються лише Pending і deviceId. HTTP-код у Pending може бути
+  кодом попереднього успішного запиту.
+- sampleId стабільний під час повторів, але JSONPlaceholder не забезпечує серверну
+  ідемпотентність. Для production потрібен серверний unique key / idempotency contract.
+- Full BODY HTTP-лог увімкнений тільки для debug-збірки. API-ключів у коді немає.
 
-Контролер та його CoroutineScope використовуються на Main. Немає блокувального
-Thread.sleep у додатку; delay віддає потік. UI блокує паралельні GATT-операції,
-контролер додатково відхиляє їх. disconnect скасовує незавершену операцію без ACK.
-При повороті зі створенням нової Activity mock-стан і журнал починаються заново;
-історія на диску та фоновий сервіс не реалізовані.
-
-## Профіль і протокол
-
-| Роль | UUID | Операції |
-|---|---|---|
-| Сервіс Light Smart Hub | `8f4b1000-6a6b-4d91-a922-42d0a62f0100` | Виявлення |
-| STATUS | `8f4b1001-6a6b-4d91-a922-42d0a62f0100` | Read, Notify |
-| COMMAND | `8f4b1002-6a6b-4d91-a922-42d0a62f0100` | Write |
-
-Користувацькі UUID; це не стандартний профіль Bluetooth SIG. UTF-8, ASCII-команди,
-без роздільника наприкінці, одна команда на один віртуальний запис, до 20 байтів.
-Цей розмір відповідає ATT payload для базового MTU 23. Реального GATT/радіопакета,
-переговорів MTU або запису CCCD у mock немає.
-
-- `LUX:420.0` — передати 0..200000 лк, не більше одного десяткового знака;
-  `ACK:LUX` — підтвердження застосування.
-- `SET:500` — встановити ціле значення цілі 10..10000 лк; `ACK:SET`.
-- `NOTIFY:ON` / `NOTIFY:OFF` — перемикання підписки; `ACK:NOTIFY`.
-- Read STATUS → `L:420.0;T:500` (останнє значення хаба і ціль).
-- Notify STATUS → такий самий формат після підписки та успішного запису.
-  Без нової команди періодичних повідомлень немає.
-- Неприпустимий формат, діапазон чи понад 20 байтів → ERROR у журналі без TX.
-
-Стан: Disconnected → Scanning → Disconnected (список знайдено) → Connecting →
-Connected → Data Transfer → Connected. Скасування, onPause, перешкода або
-тайм-аут підключення повертають у Disconnected. Повторне підключення ручне;
-автоматичний backoff не реалізований. Отримані раніше Read/Notify залишаються
-останнім результатом; актуальний стан зв’язку показується окремо.
-
-## Дозволи
-
-Маніфест містить BLUETOOTH_SCAN (neverForLocation), BLUETOOTH_CONNECT,
-ACCESS_FINE_LOCATION / BLUETOOTH / BLUETOOTH_ADMIN з maxSdkVersion=30 для
-опису сумісного реального шару. Поточний minSdk=31. Mock не звертається до
-Bluetooth API та не запитує runtime-дозволи. Для заміни на реальний BluetoothGatt
-потрібно додати runtime-запит Nearby devices і обробку відмови користувача.
-
-## Перевірка
+## Перевірки
 
 ```powershell
-.\gradlew.bat :app:assembleDebug :app:testDebugUnitTest :app:lintDebug --console=plain --max-workers=2 --offline
+.\gradlew.bat :app:assembleDebug :app:testDebugUnitTest :app:lintDebug --console=plain --max-workers=2
 ```
 
-Успішна збірка; шість тестів MockBleConnector + чотири TiltPosition + один
-початковий тест шаблону. Сценарії BLE: затримка 2 с, Read/Write/Notify,
-скасування сканування/підключення, перешкода під час запису, некоректні та
-паралельні пакети, тайм-аут і можливість повторного підключення.
-Матеріали перевірки емулятора збережено окремо для звіту.
+20 локальних тестів, 0 помилок. Нові 9 тестів перевіряють JSON POST через MockWebServer,
+FIFO і ліміт batch, offline/restart, HTTP 503, невідповідний ACK, IOException,
+скасування під час POST та запису на диск, ліміт черги й некоректні числа.
+11 попередніх тестів BLE/індикатора також пройдено; instrumented-тест шаблону не запускався.
+Android Lint: 0 errors, залишилися попередження залежностей і стилю.
+Емулятор Medium Phone API 37: HTTP 201, зміна lux і XYZ, Pending offline,
+перезапуск процесу та повтор з тим самим sampleId перевірені фактично.
 
-Документація Android:
-- https://developer.android.com/develop/connectivity/bluetooth/bt-permissions
-- https://developer.android.com/topic/libraries/architecture/coroutines
-- https://developer.android.com/develop/connectivity/bluetooth/ble/transfer-ble-data
+Для скриншота трафіку вручну: Android Studio → View → Tool Windows → App Inspection
+→ процес `com.example.lab2` → Network Inspector → HTTPS POST /posts → Request / Response.
+Додаток має залишатися активним. Скриншот саме Network Inspector ще потрібно додати
+до звіту; HTTP-логи та екран відповіді API вже підготовлені.
+
+## Джерела
+
+- https://jsonplaceholder.typicode.com/guide/
+- https://square.github.io/retrofit/
+- https://developer.android.com/studio/inspect/network
