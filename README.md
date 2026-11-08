@@ -1,10 +1,24 @@
-# Light Exposure Tracker — лабораторна №4
+# Light Exposure Tracker — лабораторна №5
 
-Гілка `lab4-actuator-control` від `lab3-cloud-sync`. Відкрити цю теку в Android
-Studio, запустити app. Package/applicationId `com.example.lab4`, minSdk 31,
-compile/target API 37. Вкладки сенсорів, BLE і хмарної синхронізації ЛР3 збережено.
+Гілка `lab5-room-analytics` від `lab4-actuator-control`. Відкрити цю теку в Android
+Studio та запустити `app`. Package/applicationId `com.example.lab5`, minSdk 31,
+compile/target API 37. Вкладки сенсорів, BLE, хмари та керування збережено.
 
-## Керування
+## Аналітика та Room
+
+- `SensorViewModel` кожні 2 с бере останнє доступне значення освітленості, поки Activity активна.
+- Перехід лампи OFF → ON записується окремою подією для AUTO, MANUAL та REMOTE.
+- `SensorRepository` використовує suspend-вставку Room та спостережувані Flow-запити.
+- База `light_history.db`, таблиця `sensor_records`: id, timestamp (Unix-мс),
+  sensorValue (лк, може бути NULL для події без доступного показника), actionTriggered.
+- Vico відображає останні 50 вимірювань за місцевим часом. Під графіком — до 50 активацій.
+- Room зберігає історію після закриття застосунку. Для перегляду мережа не потрібна.
+
+Для демонстрації змінювати **Light** у Virtual Sensors і тримати кожне значення 2–3 с.
+Наприклад, 100 → 600 → 160 → 750 лк. Низькі значення в AUTO створюють записи активації.
+В App Inspection → Database Inspector обрати `com.example.lab5` → `light_history.db` → `sensor_records`.
+
+## Керування (ЛР4)
 
 `SensorManager → MainActivity → ControlViewModel → DecisionEngine → SmartActuator`.
 
