@@ -5,13 +5,13 @@ plugins {
 }
 
 android {
-    namespace = "com.example.lab5"
+    namespace = "com.example.lab6"
     compileSdk {
         version = release(37)
     }
 
     defaultConfig {
-        applicationId = "com.example.lab5"
+        applicationId = "com.example.lab6"
         minSdk = 31
         targetSdk = 37
         versionCode = 1
@@ -36,6 +36,9 @@ android {
         compose = true
         buildConfig = true
     }
+    androidResources {
+        noCompress += "tflite"
+    }
 }
 
 ksp {
@@ -43,6 +46,8 @@ ksp {
 }
 
 dependencies {
+    implementation("org.tensorflow:tensorflow-lite:2.16.1")
+    implementation("org.tensorflow:tensorflow-lite-support-api:0.4.4")
     implementation("androidx.room:room-runtime:2.8.4")
     implementation("androidx.room:room-ktx:2.8.4")
     ksp("androidx.room:room-compiler:2.8.4")

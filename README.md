@@ -1,12 +1,34 @@
-# Light Exposure Tracker — лабораторна №5
+# Light Exposure Tracker — лабораторна №6
 
-Гілка `lab5-room-analytics` від `lab4-actuator-control`. Відкрити цю теку в Android
-Studio та запустити `app`. Package/applicationId `com.example.lab5`, minSdk 31,
+Гілка `lab6-edge-ai` від `lab5-room-analytics`. Відкрити цю теку в Android
+Studio та запустити `app`. Package/applicationId `com.example.lab6`, minSdk 31,
 compile/target API 37. Вкладки сенсорів, BLE, хмари та керування збережено.
+
+## AI Insights
+
+- Додаток бере останню освітленість кожні 50 мс і зберігає 20 значень у кільцевому буфері.
+- Вхід моделі — float32 `[1,20]`, значення у хронологічному порядку. Нормалізація:
+  `ln(1 + clamp(lux, 0, 200000)) / ln(200001)`.
+- Вихід — float32 `[1,3]`: стабільне світло, зміна освітленості, різке затемнення.
+  TensorFlow Lite запускається приблизно кожні 200 мс на `Dispatchers.Default`.
+- Якщо найбільша оцінка ≥ 0,8, зміна чи затемнення скорочують інтервал Room з 2 с до 0,5 с.
+  Затемнення в AUTO вмикає лампу; після нього керування повертається до звичайного порога.
+- Модель працює локально, навіть коли мережа вимкнена. Фоновий inference зупиняється в `onPause`.
+
+Демонстрація: на вкладці **AI** у Virtual Sensors → Light виставити 650 лк,
+зачекати близько 2 с, виставити 1700 лк, знову зачекати і виставити 380 лк.
+Клас переходу видно коротко, поки у вікні є показники до і після зміни.
+380 лк вище за поріг вимкнення ЛР4, тому в AUTO тут видно окрему реакцію ML.
+У Logcat використати `tag:LightAI` та `tag:LightControl`.
+
+Модель `app/src/main/assets/light_activity.tflite` навчено на синтетичних вікнах.
+Відтворення на ПК: Python 3.12, `pip install tensorflow==2.19.1`,
+потім `python ml/train_light_model.py`. Для збірки Android Python не потрібен.
+Якість на синтетичному наборі не вимірює якість на реальному датчику.
 
 ## Аналітика та Room
 
-- `SensorViewModel` кожні 2 с бере останнє доступне значення освітленості, поки Activity активна.
+- `SensorViewModel` записує останнє доступне значення кожні 2 с, або кожні 0,5 с після класифікації зміни.
 - Перехід лампи OFF → ON записується окремою подією для AUTO, MANUAL та REMOTE.
 - `SensorRepository` використовує suspend-вставку Room та спостережувані Flow-запити.
 - База `light_history.db`, таблиця `sensor_records`: id, timestamp (Unix-мс),
@@ -16,7 +38,7 @@ compile/target API 37. Вкладки сенсорів, BLE, хмари та к�
 
 Для демонстрації змінювати **Light** у Virtual Sensors і тримати кожне значення 2–3 с.
 Наприклад, 100 → 600 → 160 → 750 лк. Низькі значення в AUTO створюють записи активації.
-В App Inspection → Database Inspector обрати `com.example.lab5` → `light_history.db` → `sensor_records`.
+В App Inspection → Database Inspector обрати `com.example.lab6` → `light_history.db` → `sensor_records`.
 
 ## Керування (ЛР4)
 
