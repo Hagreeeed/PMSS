@@ -29,8 +29,14 @@ import com.patrykandpatrick.vico.compose.cartesian.rememberVicoScrollState
 import com.patrykandpatrick.vico.core.cartesian.axis.HorizontalAxis
 import com.patrykandpatrick.vico.core.cartesian.axis.VerticalAxis
 import com.patrykandpatrick.vico.core.cartesian.data.CartesianChartModelProducer
+import com.patrykandpatrick.vico.core.cartesian.data.CartesianLayerRangeProvider
+import com.patrykandpatrick.vico.core.cartesian.data.CartesianValueFormatter
 import com.patrykandpatrick.vico.core.cartesian.data.lineSeries
+import com.patrykandpatrick.vico.core.common.data.ExtraStore
 import java.time.Instant
+import kotlin.math.floor
+import kotlin.math.log10
+import kotlin.math.pow
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
@@ -91,27 +97,56 @@ fun AnalyticsScreen(history: SensorViewModel) {
 private fun HistoryChart(records: List<SensorRecord>) {
     val producer = remember { CartesianChartModelProducer() }
     val points = remember(records) {
-        records.mapNotNull { record -> record.sensorValue?.let { record.timestamp / 1_000L to it } }
-            .distinctBy { it.first }
+        records.mapNotNull { record -> record.sensorValue?.let { record.timestamp to it } }
     }
     if (points.size < 2) return
     LaunchedEffect(points) {
         producer.runTransaction {
-            lineSeries { series(x = points.map { it.first }, y = points.map { it.second }) }
+            // По X — порядковий номер вимірювання: крок завжди 1, тому масштаб осі не стрибає,
+            // навіть якщо інтервал між записами плаває (2 с, 3 с або пауза після onPause).
+            lineSeries { series(x = points.indices.toList(), y = points.map { it.second }) }
+            extras { it[TimestampsKey] = points.map { point -> point.first } }
         }
     }
     CartesianChartHost(
         chart = rememberCartesianChart(
-            rememberLineCartesianLayer(),
+            rememberLineCartesianLayer(rangeProvider = StableLuxRange),
             startAxis = VerticalAxis.rememberStart(),
             bottomAxis = HorizontalAxis.rememberBottom(
-                valueFormatter = { _, value, _ -> axisTime.format(Instant.ofEpochSecond(value.toLong())) },
+                valueFormatter = TimeAxisFormatter,
+                itemPlacer = remember { HorizontalAxis.ItemPlacer.aligned(spacing = { 10 }) },
             ),
         ),
         modelProducer = producer,
         modifier = Modifier.fillMaxWidth().height(235.dp),
         scrollState = rememberVicoScrollState(scrollEnabled = false),
+        // Без анімації переходу: інакше при зсуві вікна кожна точка «перетікає» в сусідню.
+        animationSpec = null,
+        animateIn = false,
     )
+}
+
+/** Мітки часу точок графіка; передаються разом із моделлю, щоб формат осі не перестворювався. */
+private val TimestampsKey = ExtraStore.Key<List<Long>>()
+
+private val TimeAxisFormatter = CartesianValueFormatter { context, value, _ ->
+    val timestamps = context.model.extraStore.getOrNull(TimestampsKey)
+    timestamps?.getOrNull(value.toInt())?.let { axisTime.format(Instant.ofEpochMilli(it)) } ?: ""
+}
+
+/**
+ * Вісь Y від 0 до «круглого» максимуму (1-2-5 × 10ⁿ). Межа змінюється лише тоді,
+ * коли освітленість перетинає наступне кругле значення, а не при кожному новому вимірюванні.
+ */
+private object StableLuxRange : CartesianLayerRangeProvider {
+    override fun getMinY(minY: Double, maxY: Double, extraStore: ExtraStore) = 0.0
+
+    override fun getMaxY(minY: Double, maxY: Double, extraStore: ExtraStore): Double {
+        if (maxY <= 10.0) return 10.0
+        val magnitude = 10.0.pow(floor(log10(maxY)))
+        val step = listOf(1.0, 2.0, 5.0, 10.0).first { it * magnitude >= maxY }
+        return step * magnitude
+    }
 }
 
 private fun luxLabel(lux: Float) = String.format(java.util.Locale.getDefault(), "%.1f", lux)
