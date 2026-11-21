@@ -1,101 +1,82 @@
-# Light Exposure Tracker — лабораторна №6
+# Light Exposure Tracker — ЛР6
 
-Гілка `lab6-edge-ai` від `lab5-room-analytics`. Відкрити цю теку в Android
-Studio та запустити `app`. Package/applicationId `com.example.lab6`, minSdk 31,
-compile/target API 37. Вкладки сенсорів, BLE, хмари та керування збережено.
+Класифікація змін освітленості на пристрої за допомогою TensorFlow Lite (on-device AI).
 
-## AI Insights
+Гілка `lab6-edge-ai`, зроблена на основі ЛР5. Пакет `com.example.lab6`, minSdk 31.
+Щоб запустити, відкриваю цю папку в Android Studio і запускаю конфігурацію `app` на емуляторі.
 
-- Додаток бере останню освітленість кожні 50 мс і зберігає 20 значень у кільцевому буфері.
-- Вхід моделі — float32 `[1,20]`, значення у хронологічному порядку. Нормалізація:
-  `ln(1 + clamp(lux, 0, 200000)) / ln(200001)`.
-- Вихід — float32 `[1,3]`: стабільне світло, зміна освітленості, різке затемнення.
-  TensorFlow Lite запускається приблизно кожні 200 мс на `Dispatchers.Default`.
-- Якщо найбільша оцінка ≥ 0,8, зміна чи затемнення скорочують інтервал Room з 2 с до 0,5 с.
-  Затемнення в AUTO вмикає лампу; після нього керування повертається до звичайного порога.
-- Модель працює локально, навіть коли мережа вимкнена. Фоновий inference зупиняється в `onPause`.
+## Що додано в цій роботі
 
-Демонстрація: на вкладці **AI** у Virtual Sensors → Light виставити 650 лк,
-зачекати близько 2 с, виставити 1700 лк, знову зачекати і виставити 380 лк.
-Клас переходу видно коротко, поки у вікні є показники до і після зміни.
-380 лк вище за поріг вимкнення ЛР4, тому в AUTO тут видно окрему реакцію ML.
-У Logcat використати `tag:LightAI` та `tag:LightControl`.
+Пакет `ai`:
 
-Модель `app/src/main/assets/light_activity.tflite` навчено на синтетичних вікнах.
-Відтворення на ПК: Python 3.12, `pip install tensorflow==2.19.1`,
-потім `python ml/train_light_model.py`. Для збірки Android Python не потрібен.
-Якість на синтетичному наборі не вимірює якість на реальному датчику.
+- `LightWindow` — кільцевий буфер на 20 останніх значень освітленості;
+- `ActivityClassifier` — завантажує модель з `assets/light_activity.tflite` у `Interpreter` і повертає клас та ймовірності;
+- `LightAiViewModel` — кожні 50 мс додає значення в буфер, приблизно раз на 200 мс запускає модель на `Dispatchers.Default`.
 
-## Аналітика та Room
+Вкладка **AI** (`ui/AiInsightsScreen.kt`) — це блок «AI Insights»: поточний клас і ймовірності.
 
-- `SensorViewModel` записує останнє доступне значення кожні 2 с, або кожні 0,5 с після класифікації зміни.
-- Перехід лампи OFF → ON записується окремою подією для AUTO, MANUAL та REMOTE.
-- `SensorRepository` використовує suspend-вставку Room та спостережувані Flow-запити.
-- База `light_history.db`, таблиця `sensor_records`: id, timestamp (Unix-мс),
-  sensorValue (лк, може бути NULL для події без доступного показника), actionTriggered.
-- Vico відображає останні 50 вимірювань за місцевим часом. Під графіком — до 50 активацій.
-- Room зберігає історію після закриття застосунку. Для перегляду мережа не потрібна.
+### Модель
 
-Для демонстрації змінювати **Light** у Virtual Sensors і тримати кожне значення 2–3 с.
-Наприклад, 100 → 600 → 160 → 750 лк. Низькі значення в AUTO створюють записи активації.
-В App Inspection → Database Inspector обрати `com.example.lab6` → `light_history.db` → `sensor_records`.
+| | Формат | Що означає |
+|---|---|---|
+| Вхід | float32 `[1, 20]` | 20 останніх значень, від старішого до новішого |
+| Вихід | float32 `[1, 3]` | ймовірності трьох класів |
 
-## Керування (ЛР4)
+Перед подачею в модель значення нормалізуються: `ln(1 + lux) / ln(200001)`, lux обмежено діапазоном 0…200000.
 
-`SensorManager → MainActivity → ControlViewModel → DecisionEngine → SmartActuator`.
+Класи:
 
-- AUTO: lux < 300 вмикає лампу, lux ≥ 350 вимикає; 300–350 утримує стан.
-  Це навчальні пороги, не норматив освітлення. null, NaN, від’ємні lux — OFF.
-- MANUAL: кнопки «Увімкнути» / «Вимкнути»; інші джерела не змінюють стан.
-- REMOTE: реальні Retrofit GET, наступний poll через 3 с після завершення запиту.
+1. стабільне світло;
+2. зміна освітленості;
+3. різке затемнення.
 
-Режими взаємовиключні. Зміна режиму скидає OFF; повернення AUTO одразу перевіряє lux.
-Вібрація 180 мс лише при переході OFF → ON. Повторні вимірювання чи GET не повторюють її.
-onPause: polling cancelled, власний torch OFF, vibration cancelled, callback unregistered.
-Після повернення REMOTE чекає новий GET; завершення процесу скидає режим у AUTO.
+### Зв'язок з попередніми роботами
 
-Жовте коло означає **віртуальну** лампу, не факт фізичного спалаху. SmartActuator
-використовує VibratorManager.defaultVibrator, VibrationEffect.createOneShot,
-CameraManager.setTorchMode та TorchCallback. Апаратний ліхтарик вмикається окремим
-перемикачем із runtime-дозволом CAMERA; відсутність спалаху/дозволу або помилка
-камери показуються явно з віртуальним fallback. VIBRATE — звичайний дозвіл.
+- Якщо модель впевнена (≥ 0,8), що світло змінюється або різко темніє, запис у Room (ЛР5) пришвидшується з 2 с до 0,5 с.
+- Різке затемнення в режимі AUTO вмикає лампу (ЛР4). Далі лампою знову керують звичайні пороги.
+- Модель працює локально, тож мережа для неї не потрібна. В `onPause` класифікація зупиняється.
 
-## Cloud-to-Device
+### Навчання моделі
 
-Public API: HTTPS GET `https://jsonplaceholder.typicode.com/todos/1`, сталий OFF.
-JSONPlaceholder не зберігає зміни. Змінну зовнішню команду демонструє локальний
-**Mock REST-хаб**, дозволена імітація з методички; це не Firebase і не публічна хмара.
+Модель навчена на синтетичних даних скриптом `ml/train_light_model.py`. Щоб перенавчити:
 
-1. ПК: `python demo-hub/server.py` (Python 3, без сторонніх пакетів).
-2. Для емулятора: `adb reverse tcp:8787 tcp:8787`.
-3. Браузер ПК: [консоль хаба](http://127.0.0.1:8787/).
-4. Android: REMOTE → Demo hub. На ПК натиснути «Лампа ON» / «Лампа OFF».
+```
+pip install tensorflow==2.19.1
+python ml/train_light_model.py
+```
 
-GET `/command` повертає `{"id":2,"completed":true}`. id — додатне ціле число ревізії,
-completed — суворий boolean (true=ON). Хаб збільшує id при команді; зберігає стан
-у пам’яті до перезапуску. POST `/command` приймає `{"completed":false}`.
+(Python 3.12.) Для збірки застосунку Python не потрібен, готовий `.tflite` уже лежить в `assets`.
+Дані синтетичні, тож на реальному датчику точність може бути іншою.
 
-HTTP-помилка, невалідний JSON, timeout чи відсутність мережі → безпечний OFF;
-наступний poll повторює спробу. Тайм-аут повного запиту 6 с. Затримка реакції —
-до наступного poll + мережевий час. Це звичайне **polling**, не long polling або push.
+## Як перевіряв
 
-HTTP тільки loopback (127.0.0.1/localhost) у debug. Release не показує Demo hub,
-використовує HTTPS. Хаб слухає лише loopback ПК; порт не відкривається в LAN.
-Фізичний смартфон може працювати через USB adb reverse. API-ключів немає.
+1. Відкриваю вкладку AI.
+2. В емуляторі: Virtual Sensors → Light, ставлю 650 лк і чекаю ~2 с.
+3. Ставлю 1700 лк: на кілька секунд з'являється клас «зміна освітленості».
+4. Ставлю 380 лк: модель показує «різке затемнення», і в AUTO вмикається лампа, хоча 380 лк вище порогу ЛР4.
 
-## Перевірка
+Logcat: `tag:LightAI`, `tag:LightControl`.
 
-`gradlew.bat :app:assembleDebug :app:testDebugUnitTest :app:lintDebug`
+## Що лишилось з попередніх робіт
 
-REST-хаб: `python -m unittest discover -s demo-hub`.
+- ЛР1 — датчик освітленості й акселерометр, індикатор нахилу.
+- ЛР2 — імітація BLE-пристрою (Mock BLE).
+- ЛР3 — відправка вимірювань на REST API, черга Pending, якщо немає мережі.
+- ЛР4 — керування лампою: AUTO (вмикається нижче 300 лк, вимикається від 350 лк), MANUAL, REMOTE (команда з хаба).
+- ЛР5 — історія в Room і графік на вкладці «Аналітика».
 
-Тести: границі/гістерезис, невалідні lux, один імпульс на активацію, незалежність
-режимів, пізні команди після onPause, помилка/відновлення зв’язку, строгий JSON,
-GET через MockWebServer. Попередні тести ЛР1–3 збережено.
+Для режиму REMOTE потрібен локальний хаб:
 
-Емулятор → Virtual Sensors: 50 лк ON → 320 утримання → 350 OFF. Перевірити MANUAL,
-потім REMOTE через зовнішню консоль. Logcat: `tag:LightControl`.
+```
+python demo-hub/server.py
+adb reverse tcp:8787 tcp:8787
+```
 
-[CameraManager](https://developer.android.com/reference/android/hardware/camera2/CameraManager),
-[VibratorManager](https://developer.android.com/reference/android/os/VibratorManager),
-[JSONPlaceholder](https://jsonplaceholder.typicode.com/guide/).
+Після цього консоль хаба відкривається на http://127.0.0.1:8787/, а в застосунку вибираю REMOTE → Demo hub.
+
+## Збірка і тести
+
+```
+gradlew.bat :app:assembleDebug :app:testDebugUnitTest
+python -m unittest discover -s demo-hub
+```
