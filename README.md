@@ -1,65 +1,61 @@
-# Light Exposure Tracker — лабораторна №4
+# Light Exposure Tracker — ЛР5
 
-Гілка `lab4-actuator-control` від `lab3-cloud-sync`. Відкрити цю теку в Android
-Studio, запустити app. Package/applicationId `com.example.lab4`, minSdk 31,
-compile/target API 37. Вкладки сенсорів, BLE і хмарної синхронізації ЛР3 збережено.
+Локальне зберігання даних у Room і графік освітленості.
 
-## Керування
+Гілка `lab5-room-analytics`, зроблена на основі ЛР4. Пакет `com.example.lab5`, minSdk 31.
+Щоб запустити, відкриваю цю папку в Android Studio і запускаю конфігурацію `app` на емуляторі.
 
-`SensorManager → MainActivity → ControlViewModel → DecisionEngine → SmartActuator`.
+## Що додано в цій роботі
 
-- AUTO: lux < 300 вмикає лампу, lux ≥ 350 вимикає; 300–350 утримує стан.
-  Це навчальні пороги, не норматив освітлення. null, NaN, від’ємні lux — OFF.
-- MANUAL: кнопки «Увімкнути» / «Вимкнути»; інші джерела не змінюють стан.
-- REMOTE: реальні Retrofit GET, наступний poll через 3 с після завершення запиту.
+Пакет `history`:
 
-Режими взаємовиключні. Зміна режиму скидає OFF; повернення AUTO одразу перевіряє lux.
-Вібрація 180 мс лише при переході OFF → ON. Повторні вимірювання чи GET не повторюють її.
-onPause: polling cancelled, власний torch OFF, vibration cancelled, callback unregistered.
-Після повернення REMOTE чекає новий GET; завершення процесу скидає режим у AUTO.
+- `SensorRecord` — таблиця `sensor_records`;
+- `SensorDao` — вставка запису й вибірка останніх N записів (Flow);
+- `SensorDatabase` — синглтон Room, файл бази `light_history.db`;
+- `SensorRepository` — проміжний шар між ViewModel і DAO;
+- `SensorViewModel` — кожні 2 с записує в базу останнє значення освітленості, а також окремо записує кожне ввімкнення лампи.
 
-Жовте коло означає **віртуальну** лампу, не факт фізичного спалаху. SmartActuator
-використовує VibratorManager.defaultVibrator, VibrationEffect.createOneShot,
-CameraManager.setTorchMode та TorchCallback. Апаратний ліхтарик вмикається окремим
-перемикачем із runtime-дозволом CAMERA; відсутність спалаху/дозволу або помилка
-камери показуються явно з віртуальним fallback. VIBRATE — звичайний дозвіл.
+Вкладка «Аналітика» (`ui/AnalyticsScreen.kt`) показує графік останніх 50 вимірювань (бібліотека Vico)
+і список ввімкнень лампи під ним. Графік оновлюється сам, бо дані приходять із Room через Flow.
 
-## Cloud-to-Device
+### Таблиця `sensor_records`
 
-Public API: HTTPS GET `https://jsonplaceholder.typicode.com/todos/1`, сталий OFF.
-JSONPlaceholder не зберігає зміни. Змінну зовнішню команду демонструє локальний
-**Mock REST-хаб**, дозволена імітація з методички; це не Firebase і не публічна хмара.
+| Поле | Тип | Опис |
+|---|---|---|
+| `id` | INTEGER, PK | автоінкремент |
+| `timestamp` | INTEGER | час запису, мс від 1970 р. |
+| `sensorValue` | REAL, може бути NULL | освітленість, лк |
+| `actionTriggered` | INTEGER (0/1) | 1 — запис про ввімкнення лампи (OFF → ON) |
 
-1. ПК: `python demo-hub/server.py` (Python 3, без сторонніх пакетів).
-2. Для емулятора: `adb reverse tcp:8787 tcp:8787`.
-3. Браузер ПК: [консоль хаба](http://127.0.0.1:8787/).
-4. Android: REMOTE → Demo hub. На ПК натиснути «Лампа ON» / «Лампа OFF».
+Запис іде через suspend-функцію, тому Room виконує його не в головному потоці.
+Історія зберігається після закриття застосунку, інтернет для неї не потрібен.
 
-GET `/command` повертає `{"id":2,"completed":true}`. id — додатне ціле число ревізії,
-completed — суворий boolean (true=ON). Хаб збільшує id при команді; зберігає стан
-у пам’яті до перезапуску. POST `/command` приймає `{"completed":false}`.
+## Як перевіряв
 
-HTTP-помилка, невалідний JSON, timeout чи відсутність мережі → безпечний OFF;
-наступний poll повторює спробу. Тайм-аут повного запиту 6 с. Затримка реакції —
-до наступного poll + мережевий час. Це звичайне **polling**, не long polling або push.
+1. В емуляторі: `...` → Virtual Sensors → Additional sensors → Light.
+2. Міняю значення приблизно раз на 2–3 с, наприклад 100 → 600 → 160 → 750 лк, щоб на графіку з'явились «хвилі».
+3. У режимі AUTO при низькому освітленні лампа вмикається, і в списку з'являється новий запис.
+4. Вміст бази дивлюсь в App Inspection → Database Inspector → `com.example.lab5` → `light_history.db` → `sensor_records`.
 
-HTTP тільки loopback (127.0.0.1/localhost) у debug. Release не показує Demo hub,
-використовує HTTPS. Хаб слухає лише loopback ПК; порт не відкривається в LAN.
-Фізичний смартфон може працювати через USB adb reverse. API-ключів немає.
+## Що лишилось з попередніх робіт
 
-## Перевірка
+- ЛР1 — датчик освітленості й акселерометр, індикатор нахилу.
+- ЛР2 — імітація BLE-пристрою (Mock BLE).
+- ЛР3 — відправка вимірювань на REST API, черга Pending, якщо немає мережі.
+- ЛР4 — керування лампою: AUTO (вмикається нижче 300 лк, вимикається від 350 лк), MANUAL (кнопки), REMOTE (команда з хаба).
 
-`gradlew.bat :app:assembleDebug :app:testDebugUnitTest :app:lintDebug`
+Для режиму REMOTE потрібен локальний хаб:
 
-REST-хаб: `python -m unittest discover -s demo-hub`.
+```
+python demo-hub/server.py
+adb reverse tcp:8787 tcp:8787
+```
 
-Тести: границі/гістерезис, невалідні lux, один імпульс на активацію, незалежність
-режимів, пізні команди після onPause, помилка/відновлення зв’язку, строгий JSON,
-GET через MockWebServer. Попередні тести ЛР1–3 збережено.
+Після цього консоль хаба відкривається на http://127.0.0.1:8787/, а в застосунку вибираю REMOTE → Demo hub.
 
-Емулятор → Virtual Sensors: 50 лк ON → 320 утримання → 350 OFF. Перевірити MANUAL,
-потім REMOTE через зовнішню консоль. Logcat: `tag:LightControl`.
+## Збірка і тести
 
-[CameraManager](https://developer.android.com/reference/android/hardware/camera2/CameraManager),
-[VibratorManager](https://developer.android.com/reference/android/os/VibratorManager),
-[JSONPlaceholder](https://jsonplaceholder.typicode.com/guide/).
+```
+gradlew.bat :app:assembleDebug :app:testDebugUnitTest
+python -m unittest discover -s demo-hub
+```
