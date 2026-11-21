@@ -28,3 +28,7 @@ Thumbs.db
 
 # Report screenshots are kept locally
 /screenshots/
+
+# Python demo hub cache
+__pycache__/
+*.pyc
