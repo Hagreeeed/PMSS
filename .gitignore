@@ -32,3 +32,6 @@ Thumbs.db
 # Python demo hub cache
 __pycache__/
 *.pyc
+
+# Записи, які отримав локальний хаб
+demo-hub/readings.json

@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -5,19 +7,26 @@ plugins {
 }
 
 android {
-    namespace = "com.example.lab6"
+    namespace = "com.example.lab7"
     compileSdk {
         version = release(37)
     }
 
     defaultConfig {
-        applicationId = "com.example.lab6"
+        applicationId = "com.example.lab7"
         minSdk = 31
         targetSdk = 37
         versionCode = 1
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Адреса хаба береться з local.properties (hub.url), щоб не зашивати її в код.
+        val local = Properties().apply {
+            rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
+        }
+        val hubUrl = local.getProperty("hub.url", "http://127.0.0.1:8787/")
+        buildConfigField("String", "HUB_URL", "\"$hubUrl\"")
     }
 
     buildTypes {
@@ -63,6 +72,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.4")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.9.4")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.4")
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.squareup.retrofit2:converter-gson:2.11.0")
     implementation("com.google.code.gson:gson:2.11.0")
@@ -76,4 +86,5 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
+    debugImplementation("com.squareup.leakcanary:leakcanary-android:2.14")
 }
