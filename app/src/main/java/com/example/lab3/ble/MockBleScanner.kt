@@ -1,4 +1,4 @@
-package com.example.lab2.ble
+package com.example.lab3.ble
 
 import kotlinx.coroutines.delay
 

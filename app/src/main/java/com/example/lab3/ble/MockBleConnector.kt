@@ -1,4 +1,4 @@
-package com.example.lab2.ble
+package com.example.lab3.ble
 
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter

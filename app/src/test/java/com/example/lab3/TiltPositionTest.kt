@@ -1,6 +1,6 @@
-package com.example.lab2
+package com.example.lab3
 
-import com.example.lab2.ui.tiltPosition
+import com.example.lab3.ui.tiltPosition
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test

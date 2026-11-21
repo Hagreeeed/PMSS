@@ -1,8 +1,8 @@
-package com.example.lab2
+package com.example.lab3
 
-import com.example.lab2.ble.BlePhase
-import com.example.lab2.ble.BleProfile
-import com.example.lab2.ble.MockBleConnector
+import com.example.lab3.ble.BlePhase
+import com.example.lab3.ble.BleProfile
+import com.example.lab3.ble.MockBleConnector
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
