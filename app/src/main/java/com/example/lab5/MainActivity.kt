@@ -15,7 +15,7 @@ import com.example.lab5.history.SensorViewModel
 import com.example.lab5.ble.MockBleConnector
 import com.example.lab5.sensors.WorkplaceSensorMonitor
 import com.example.lab5.ui.LabApp
-import com.example.lab5.ui.theme.Lab1Theme
+import com.example.lab5.ui.theme.LightTrackerTheme
 
 class MainActivity : ComponentActivity() {
     private lateinit var sensorMonitor: WorkplaceSensorMonitor
@@ -44,7 +44,7 @@ class MainActivity : ComponentActivity() {
         }
         enableEdgeToEdge()
         setContent {
-            Lab1Theme {
+            LightTrackerTheme {
                 LabApp(sensorMonitor.state, bleConnector, cloud, control, history)
             }
         }

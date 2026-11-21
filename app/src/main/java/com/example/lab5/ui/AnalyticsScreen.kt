@@ -102,8 +102,7 @@ private fun HistoryChart(records: List<SensorRecord>) {
     if (points.size < 2) return
     LaunchedEffect(points) {
         producer.runTransaction {
-            // По X — порядковий номер вимірювання: крок завжди 1, тому масштаб осі не стрибає,
-            // навіть якщо інтервал між записами плаває (2 с, 3 с або пауза після onPause).
+            // x = номер точки, щоб крок осі не залежав від інтервалу між записами
             lineSeries { series(x = points.indices.toList(), y = points.map { it.second }) }
             extras { it[TimestampsKey] = points.map { point -> point.first } }
         }
@@ -120,13 +119,12 @@ private fun HistoryChart(records: List<SensorRecord>) {
         modelProducer = producer,
         modifier = Modifier.fillMaxWidth().height(235.dp),
         scrollState = rememberVicoScrollState(scrollEnabled = false),
-        // Без анімації переходу: інакше при зсуві вікна кожна точка «перетікає» в сусідню.
+        // без анімації, інакше графік смикається при кожному новому записі
         animationSpec = null,
         animateIn = false,
     )
 }
 
-/** Мітки часу точок графіка; передаються разом із моделлю, щоб формат осі не перестворювався. */
 private val TimestampsKey = ExtraStore.Key<List<Long>>()
 
 private val TimeAxisFormatter = CartesianValueFormatter { context, value, _ ->
@@ -134,10 +132,7 @@ private val TimeAxisFormatter = CartesianValueFormatter { context, value, _ ->
     timestamps?.getOrNull(value.toInt())?.let { axisTime.format(Instant.ofEpochMilli(it)) } ?: ""
 }
 
-/**
- * Вісь Y від 0 до «круглого» максимуму (1-2-5 × 10ⁿ). Межа змінюється лише тоді,
- * коли освітленість перетинає наступне кругле значення, а не при кожному новому вимірюванні.
- */
+// Y від 0 до круглого значення (10, 20, 50, 100...), щоб вісь не мінялась на кожній точці
 private object StableLuxRange : CartesianLayerRangeProvider {
     override fun getMinY(minY: Double, maxY: Double, extraStore: ExtraStore) = 0.0
 

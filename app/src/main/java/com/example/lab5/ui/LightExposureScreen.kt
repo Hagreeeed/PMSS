@@ -27,7 +27,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.lab5.sensors.Acceleration
 import com.example.lab5.sensors.SensorUiState
-import com.example.lab5.ui.theme.Lab1Theme
+import com.example.lab5.ui.theme.LightTrackerTheme
 import java.util.Locale
 
 @Composable
@@ -130,7 +130,7 @@ private fun TiltIndicator(acceleration: Acceleration?, modifier: Modifier = Modi
 @Preview(showBackground = true)
 @Composable
 private fun LightExposurePreview() {
-    Lab1Theme {
+    LightTrackerTheme {
         LightExposureScreen(SensorUiState(
             lightAvailable = true, accelerometerAvailable = true,
             lightRegistered = true, accelerometerRegistered = true, foreground = true,
@@ -142,5 +142,5 @@ private fun LightExposurePreview() {
 @Preview(showBackground = true)
 @Composable
 private fun MissingSensorsPreview() {
-    Lab1Theme { LightExposureScreen(SensorUiState(foreground = true)) }
+    LightTrackerTheme { LightExposureScreen(SensorUiState(foreground = true)) }
 }
